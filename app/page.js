@@ -247,7 +247,7 @@ export default function HomePage() {
               <div className="flex items-center justify-between rounded-2xl border border-dashed border-gray-200 bg-emerald-50/40 p-4">
                 <div>
                   <div className="text-xs text-gray-500">Standard Delivery Fee</div>
-                  <div className="text-xl font-black text-gray-900 mt-0.5">₦5.00</div>
+                  <div className="text-xl font-black text-gray-900 mt-0.5">₦5,000.00</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="rounded-xl bg-white border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-800 shadow-xs flex items-center gap-1.5">

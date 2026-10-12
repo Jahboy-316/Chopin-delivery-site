@@ -78,7 +78,7 @@ export default function RegisterPage() {
           </span>
           <span>•</span>
           <span className="flex items-center gap-1 font-semibold">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> ₦5 Fee
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> ₦5,000 Fee
           </span>
         </div>
 

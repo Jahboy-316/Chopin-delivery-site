@@ -74,7 +74,7 @@ export default function CustomerProfilePage() {
                   <ShieldCheck className="h-4 w-4 text-emerald-600" /> Transparent Pricing
                 </div>
                 <p className="text-xs text-gray-500">
-                  Deliveries are charged at the transparent platform rate (₦5.00) and recorded against your selected payment method (Cash, Card, or Bank Transfer).
+                  Deliveries are charged at the transparent platform rate (₦5,000.00) and recorded against your selected payment method (Cash, Card, or Bank Transfer).
                 </p>
               </div>
 

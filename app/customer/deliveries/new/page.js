@@ -119,7 +119,7 @@ export default function NewDeliveryPage() {
 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-200 text-xs">
                   <span className="text-gray-500">Recorded Payment:</span>
-                  <span className="font-bold text-emerald-700">₦5.00 ({createdDelivery.payment?.method || method})</span>
+                  <span className="font-bold text-emerald-700">₦{createdDelivery.payment?.amount || "5,000.00"} ({createdDelivery.payment?.method || method})</span>
                 </div>
               </div>
 
@@ -340,7 +340,7 @@ export default function NewDeliveryPage() {
                     <div className="space-y-2.5 text-sm">
                       <div className="flex justify-between text-gray-600">
                         <span>Standard delivery fee</span>
-                        <span className="font-semibold text-gray-900">₦5.00</span>
+                        <span className="font-semibold text-gray-900">₦5,000.00</span>
                       </div>
                       <div className="flex justify-between text-gray-600">
                         <span>Rider dispatch fee</span>
@@ -352,7 +352,7 @@ export default function NewDeliveryPage() {
                       </div>
                       <div className="pt-3 border-t border-gray-200 flex justify-between items-baseline">
                         <span className="font-bold text-gray-900 text-base">Total payable</span>
-                        <span className="text-2xl font-black text-gray-900">₦5.00</span>
+                        <span className="text-2xl font-black text-gray-900">₦5,000.00</span>
                       </div>
                     </div>
 

@@ -363,7 +363,7 @@ function CustomerDeliveryDetailInner() {
 
                 <div className="flex items-center justify-between text-sm py-2">
                   <span className="font-bold text-gray-900">Total Charged</span>
-                  <span className="text-xl font-black text-gray-900">₦{payment?.amount || "5.00"}</span>
+                  <span className="text-xl font-black text-gray-900">₦{payment?.amount || "5,000.00"}</span>
                 </div>
               </CardContent>
             </Card>
