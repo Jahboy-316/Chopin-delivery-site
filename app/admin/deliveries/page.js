@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Bike,
   CheckCircle2,
+  Check,
   Search,
   UserCheck,
 } from "lucide-react";
@@ -30,7 +31,7 @@ export default function AdminDeliveriesPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [selectedRiderMap, setSelectedRiderMap] = useState({});
-  const [assigningId, setAssigningId] = useState(null);
+  const [actionInProgressId, setActionInProgressId] = useState(null);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
 
@@ -62,23 +63,52 @@ export default function AdminDeliveriesPage() {
     };
   }, [loadData]);
 
-  const handleAssignRider = async (deliveryId) => {
-    const riderId = selectedRiderMap[deliveryId];
-    if (!riderId) {
-      alert("Please select a rider to assign.");
-      return;
-    }
-    setAssigningId(deliveryId);
+  // Confirm a pending order so it becomes available to riders
+  const handleConfirmOrder = async (deliveryId) => {
+    setActionInProgressId(deliveryId);
     setError("");
     setFeedback("");
     try {
+      await deliveryApi.adminStatus(token, deliveryId, "CONFIRMED");
+      setFeedback("Delivery confirmed! It is now ready for rider dispatch or self-acceptance.");
+      await loadData();
+    } catch (err) {
+      setError(err.message || "Failed to confirm delivery");
+    } finally {
+      setActionInProgressId(null);
+    }
+  };
+
+  // Assign an available rider to a delivery (auto-confirming if still pending)
+  const handleAssignRider = async (delivery) => {
+    const deliveryId = delivery.id;
+    const riderId = selectedRiderMap[deliveryId];
+    if (!riderId) {
+      alert("Please select an available rider to assign.");
+      return;
+    }
+
+    const selectedRider = riders.find((r) => r.id === riderId);
+    if (selectedRider && selectedRider.availability !== "AVAILABLE") {
+      setError(`Cannot assign rider: ${selectedRider.user?.name || "Rider"} is currently ${selectedRider.availability}. Please select an Available rider.`);
+      return;
+    }
+
+    setActionInProgressId(deliveryId);
+    setError("");
+    setFeedback("");
+    try {
+      // Backend requires status to be CONFIRMED before assignment
+      if (delivery.status === "PENDING") {
+        await deliveryApi.adminStatus(token, deliveryId, "CONFIRMED");
+      }
       await deliveryApi.assignRider(token, deliveryId, riderId);
       setFeedback("Rider successfully assigned to delivery!");
       await loadData();
     } catch (err) {
       setError(err.message || "Failed to assign rider");
     } finally {
-      setAssigningId(null);
+      setActionInProgressId(null);
     }
   };
 
@@ -94,6 +124,9 @@ export default function AdminDeliveriesPage() {
     return delivery.status === statusFilter;
   });
 
+  const availableRiders = riders.filter((r) => r.availability === "AVAILABLE");
+  const busyOrOfflineRiders = riders.filter((r) => r.availability !== "AVAILABLE");
+
   return (
     <ProtectedRoute allowedRoles={["ADMIN"]}>
       <DashboardShell
@@ -102,15 +135,23 @@ export default function AdminDeliveriesPage() {
         description="Inspect all platform deliveries, track routing, and assign riders to open runs."
       >
         {feedback && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <span>{feedback}</span>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span>{feedback}</span>
+            </div>
+            <button onClick={() => setFeedback("")} className="text-xs font-bold text-emerald-700 hover:underline">
+              Dismiss
+            </button>
           </div>
         )}
 
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError("")} className="text-xs font-bold text-red-700 hover:underline">
+              Dismiss
+            </button>
           </div>
         )}
 
@@ -172,8 +213,10 @@ export default function AdminDeliveriesPage() {
             ) : (
               <div className="space-y-4">
                 {filtered.map((delivery) => {
-                  const hasRider = !!(delivery.rider || delivery.riderId);
-                  const isAssigning = assigningId === delivery.id;
+                  const hasRider = Boolean(delivery.rider || delivery.riderId);
+                  const canAssign = !hasRider && (delivery.status === "PENDING" || delivery.status === "CONFIRMED");
+                  const isPending = delivery.status === "PENDING";
+                  const isBusy = actionInProgressId === delivery.id;
 
                   return (
                     <div
@@ -216,48 +259,80 @@ export default function AdminDeliveriesPage() {
                         </div>
                       </div>
 
-                      {/* Rider Assignment Strip */}
+                      {/* Rider & Operations Action Strip */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-gray-100">
                         <div className="flex items-center gap-2 text-xs">
                           <Bike className="h-4 w-4 text-emerald-600" />
-                          <span className="text-gray-500">Assigned Rider:</span>
+                          <span className="text-gray-500">Rider Status:</span>
                           <span className="font-bold text-gray-900">
-                            {delivery.rider?.user?.name || "None (Unassigned)"}
+                            {hasRider
+                              ? `${delivery.rider?.user?.name || "Assigned Rider"} (${delivery.rider?.availability || "ASSIGNED"})`
+                              : isPending
+                                ? "Pending Confirmation"
+                                : "Awaiting Dispatch"}
                           </span>
                         </div>
 
-                        {/* Assign Rider Action UI */}
-                        {delivery.status !== "DELIVERED" && delivery.status !== "CANCELLED" && (
-                          <div className="flex items-center gap-2">
-                            <select
-                              value={selectedRiderMap[delivery.id] || ""}
-                              onChange={(e) =>
-                                setSelectedRiderMap((prev) => ({
-                                  ...prev,
-                                  [delivery.id]: e.target.value,
-                                }))
-                              }
-                              className="text-xs rounded-xl border border-gray-300 bg-white px-3 py-1.5 font-medium text-gray-800"
-                            >
-                              <option value="">Select Rider...</option>
-                              {riders.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                  {r.user?.name || "Rider"} ({r.availability})
-                                </option>
-                              ))}
-                            </select>
-
+                        {/* Actions: Confirm or Assign */}
+                        <div className="flex items-center gap-2">
+                          {isPending && (
                             <Button
                               size="sm"
-                              onClick={() => handleAssignRider(delivery.id)}
-                              disabled={isAssigning}
-                              className="rounded-xl text-xs font-bold gap-1"
+                              variant="outline"
+                              onClick={() => handleConfirmOrder(delivery.id)}
+                              disabled={isBusy}
+                              className="rounded-xl text-xs font-bold gap-1 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300"
                             >
-                              <UserCheck className="h-3.5 w-3.5" />
-                              <span>{isAssigning ? "Assigning..." : hasRider ? "Reassign" : "Assign Rider"}</span>
+                              <Check className="h-3.5 w-3.5" />
+                              <span>{isBusy ? "Processing..." : "Confirm Order"}</span>
                             </Button>
-                          </div>
-                        )}
+                          )}
+
+                          {canAssign && (
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={selectedRiderMap[delivery.id] || ""}
+                                onChange={(e) =>
+                                  setSelectedRiderMap((prev) => ({
+                                    ...prev,
+                                    [delivery.id]: e.target.value,
+                                  }))
+                                }
+                                className="text-xs rounded-xl border border-gray-300 bg-white px-3 py-1.5 font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                              >
+                                <option value="">Select Rider...</option>
+                                {availableRiders.length > 0 && (
+                                  <optgroup label="Available Riders (Ready)">
+                                    {availableRiders.map((r) => (
+                                      <option key={r.id} value={r.id}>
+                                        {r.user?.name || "Rider"} (AVAILABLE)
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                                {busyOrOfflineRiders.length > 0 && (
+                                  <optgroup label="Unavailable Riders">
+                                    {busyOrOfflineRiders.map((r) => (
+                                      <option key={r.id} value={r.id} disabled>
+                                        {r.user?.name || "Rider"} ({r.availability})
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                              </select>
+
+                              <Button
+                                size="sm"
+                                onClick={() => handleAssignRider(delivery)}
+                                disabled={isBusy}
+                                className="rounded-xl text-xs font-bold gap-1"
+                              >
+                                <UserCheck className="h-3.5 w-3.5" />
+                                <span>{isBusy ? "Assigning..." : "Assign Rider"}</span>
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
